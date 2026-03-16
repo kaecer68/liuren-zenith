@@ -1,0 +1,141 @@
+syntax = "proto3";
+
+package liuren;
+
+option go_package = "github.com/kaecer68/liuren-zenith/api/proto";
+
+// 大六壬信息調用服務
+service LiurenInfoService {
+  // 查詢課體信息
+  rpc GetKeTiInfo(GetKeTiInfoRequest) returns (GetKeTiInfoResponse);
+  
+  // 查詢神煞信息
+  rpc GetShenShaInfo(GetShenShaInfoRequest) returns (GetShenShaInfoResponse);
+  
+  // 查詢六親關係
+  rpc GetLiuQinInfo(GetLiuQinInfoRequest) returns (GetLiuQinInfoResponse);
+  
+  // 查詢十二天將
+  rpc GetTianJiangInfo(GetTianJiangInfoRequest) returns (GetTianJiangInfoResponse);
+  
+  // 查詢月將信息
+  rpc GetMonthGeneralInfo(GetMonthGeneralInfoRequest) returns (GetMonthGeneralInfoResponse);
+  
+  // 查詢歷史排盤記錄（如存儲系統可用）
+  rpc QueryDivinationHistory(QueryDivinationHistoryRequest) returns (QueryDivinationHistoryResponse);
+}
+
+// 課體信息請求
+message GetKeTiInfoRequest {
+  string ke_ti_name = 1;  // 課體名稱，為空則返回所有
+}
+
+// 課體信息響應
+message GetKeTiInfoResponse {
+  repeated KeTiInfo ke_ti_list = 1;
+}
+
+// 課體詳情
+message KeTiInfo {
+  string name = 1;
+  string category = 2;
+  string description = 3;
+  string meaning = 4;
+  repeated string features = 5;
+  repeated string examples = 6;
+}
+
+// 神煞信息請求
+message GetShenShaInfoRequest {
+  string shen_sha_name = 1;  // 神煞名稱，為空則返回所有
+}
+
+// 神煞信息響應
+message GetShenShaInfoResponse {
+  repeated ShenShaInfo shen_sha_list = 1;
+}
+
+// 神煞詳情
+message ShenShaInfo {
+  string name = 1;
+  string description = 2;
+  string meaning = 3;
+  string calculation = 4;
+}
+
+// 六親信息請求
+message GetLiuQinInfoRequest {
+  string stem = 1;        // 日干
+  string branch = 2;      // 地支
+}
+
+// 六親信息響應
+message GetLiuQinInfoResponse {
+  string relation = 1;     // 六親關係名稱
+  string description = 2;
+  string meaning = 3;
+}
+
+// 天將信息請求
+message GetTianJiangInfoRequest {
+  string tian_jiang_name = 1;  // 天將名稱，為空則返回所有
+}
+
+// 天將信息響應
+message GetTianJiangInfoResponse {
+  repeated TianJiangInfo tian_jiang_list = 1;
+}
+
+// 天將詳情
+message TianJiangInfo {
+  string name = 1;
+  string description = 2;
+  string nature = 3;       // 性質：吉/凶
+  string meaning = 4;
+}
+
+// 月將信息請求
+message GetMonthGeneralInfoRequest {
+  string month = 1;        // 月份名稱，為空則返回所有
+}
+
+// 月將信息響應
+message GetMonthGeneralInfoResponse {
+  repeated MonthGeneralInfo month_general_list = 1;
+}
+
+// 月將詳情
+message MonthGeneralInfo {
+  string name = 1;
+  string month = 2;
+  string description = 3;
+  string meaning = 4;
+}
+
+// 歷史記錄查詢請求
+message QueryDivinationHistoryRequest {
+  int32 limit = 1;         // 限制數量
+  int32 offset = 2;        // 偏移量
+}
+
+// 歷史記錄查詢響應
+message QueryDivinationHistoryResponse {
+  repeated DivinationRecord records = 1;
+  int32 total = 2;
+}
+
+// 排盤記錄
+message DivinationRecord {
+  string id = 1;
+  string date = 2;
+  string time = 3;
+  string year_pillar = 4;
+  string month_pillar = 5;
+  string day_pillar = 6;
+  string hour_pillar = 7;
+  string ke_ti = 8;
+  string xiong_ji = 9;
+  string question = 10;
+  string question_type = 11;
+  string created_at = 12;
+}
