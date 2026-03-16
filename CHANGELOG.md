@@ -38,6 +38,8 @@
 - 完整的大六壬排盤功能
 - 雙 API 接口支持（REST + gRPC）
 - 現代化 Web 界面
+- 十神系統與智能建議算法
+- 開源規範文檔（README、LICENSE、PRD、CONTRIBUTING、CHANGELOG）
 
 ---
 

@@ -129,6 +129,18 @@ liuren-zenith/
 - 大六壬傳統典籍《課經》《畢法賦》
 - 曆法計算參考 lunar-zenith 專案
 
+[德凱/KAECER](https://github.com/kaecer68) 
+- 對傳統文化數位化有興趣的前端工程師
+- Blog: https://goluck.im/
+- Twitter: [@kaecer](https://twitter.com/kaecer)
+
+相關專案：
+- [lunar-zenith](https://github.com/kaecer68/lunar-zenith) - 高精度農曆節氣 API
+- [ziwei-zenith](https://github.com/kaecer68/ziwei-zenith) - 紫微斗數排盤 API
+- [liuren-zenith](https://github.com/kaecer68/liuren-zenith) - 六壬排盤 API
+- [bazi-zenith](https://github.com/kaecer68/bazi-zenith) - 八字排盤 API
+
+
 ---
 
 <div align="center">
