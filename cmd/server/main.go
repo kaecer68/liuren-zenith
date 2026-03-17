@@ -166,7 +166,7 @@ func main() {
 	// 啟動 REST 服務
 	port := "8081"
 	log.Printf("Liuren-Zenith REST 服務啟動於 http://localhost:%s", port)
-	log.Printf("Liuren-Zenith gRPC 服務啟動於 localhost:50052")
+	log.Printf("Liuren-Zenith gRPC 服務啟動於 localhost:50054")
 	log.Printf("網頁界面: http://localhost:%s/", port)
 	log.Printf("REST API: POST /api/v1/divination")
 	log.Printf("gRPC 服務: LiurenInfoService")
@@ -179,7 +179,11 @@ func main() {
 
 // startGRPCServer 啟動 gRPC 信息調用服務
 func startGRPCServer() {
-	lis, err := net.Listen("tcp", ":50052")
+	grpcPort := os.Getenv("GRPC_PORT")
+	if grpcPort == "" {
+		grpcPort = "50054"
+	}
+	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatalf("gRPC 監聽失敗: %v", err)
 	}
@@ -188,7 +192,7 @@ func startGRPCServer() {
 	infoServer := server.NewInfoServer()
 	proto.RegisterLiurenInfoServiceServer(s, infoServer)
 
-	log.Printf("gRPC 信息調用服務已啟動於 :50052")
+	log.Printf("gRPC 信息調用服務已啟動於 :%s", grpcPort)
 	if err := s.Serve(lis); err != nil {
 		log.Fatalf("gRPC 服務啟動失敗: %v", err)
 	}
