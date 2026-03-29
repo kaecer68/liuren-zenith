@@ -1,13 +1,16 @@
 package main
 
 import (
+	"bufio"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"log"
 	"net"
 	"net/http"
 	"os"
 	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kaecer68/liuren-zenith/api/proto"
@@ -40,7 +43,7 @@ type DivinationResponse struct {
 // NewLiurenHandler 創建處理器
 func NewLiurenHandler() *LiurenHandler {
 	// 使用 lunar-zenith 服務獲取精確曆法數據
-	dataSource := client.NewLunarZenithClient("http://localhost:8080")
+	dataSource := client.NewLunarZenithClient("")
 	engine := liuren.NewEngine(dataSource)
 
 	return &LiurenHandler{
@@ -141,11 +144,51 @@ func writeError(w http.ResponseWriter, status int, message string) {
 	})
 }
 
+func resolvePort(contractEnvKey, legacyEnvKey string) string {
+	if value := os.Getenv(contractEnvKey); value != "" {
+		return value
+	}
+	if value := os.Getenv(legacyEnvKey); value != "" {
+		return value
+	}
+
+	envFile, err := os.Open(filepath.Clean(".env.ports"))
+	if err == nil {
+		defer envFile.Close()
+		scanner := bufio.NewScanner(envFile)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if key == contractEnvKey || key == legacyEnvKey {
+				return value
+			}
+		}
+		if scanErr := scanner.Err(); scanErr == nil {
+			log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
+		} else {
+			log.Fatalf("failed to read .env.ports: %v", scanErr)
+		}
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		log.Fatalf("failed to read .env.ports: %v", err)
+	}
+
+	log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
+	return ""
+}
+
 func main() {
 	handler := NewLiurenHandler()
+	restPort := resolvePort("LIUREN_REST_PORT", "REST_PORT")
+	grpcPort := resolvePort("LIUREN_GRPC_PORT", "GRPC_PORT")
 
 	// 啟動 gRPC 服務（在後台運行）
-	go startGRPCServer()
+	go startGRPCServer(grpcPort)
 
 	// 註冊 REST 路由
 	http.HandleFunc("/health", corsMiddleware(handler.HandleHealth))
@@ -164,25 +207,20 @@ func main() {
 	http.Handle("/", fs)
 
 	// 啟動 REST 服務
-	port := "8081"
-	log.Printf("Liuren-Zenith REST 服務啟動於 http://localhost:%s", port)
-	log.Printf("Liuren-Zenith gRPC 服務啟動於 localhost:50054")
-	log.Printf("網頁界面: http://localhost:%s/", port)
+	log.Printf("Liuren-Zenith REST 服務啟動於 http://localhost:%s", restPort)
+	log.Printf("Liuren-Zenith gRPC 服務啟動於 localhost:%s", grpcPort)
+	log.Printf("網頁界面: http://localhost:%s/", restPort)
 	log.Printf("REST API: POST /api/v1/divination")
 	log.Printf("gRPC 服務: LiurenInfoService")
 	log.Printf("健康檢查: GET /health")
 
-	if err := http.ListenAndServe(":"+port, nil); err != nil {
+	if err := http.ListenAndServe(":"+restPort, nil); err != nil {
 		log.Fatal("REST 服務啟動失敗: ", err)
 	}
 }
 
 // startGRPCServer 啟動 gRPC 信息調用服務
-func startGRPCServer() {
-	grpcPort := os.Getenv("GRPC_PORT")
-	if grpcPort == "" {
-		grpcPort = "50054"
-	}
+func startGRPCServer(grpcPort string) {
 	lis, err := net.Listen("tcp", ":"+grpcPort)
 	if err != nil {
 		log.Fatalf("gRPC 監聽失敗: %v", err)

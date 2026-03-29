@@ -1,9 +1,14 @@
 package main
 
 import (
+	"bufio"
 	"context"
+	"errors"
 	"fmt"
 	"log"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 
 	"github.com/kaecer68/liuren-zenith/api/proto"
@@ -11,9 +16,50 @@ import (
 	"google.golang.org/grpc/credentials/insecure"
 )
 
+func resolvePort(contractEnvKey, legacyEnvKey string) string {
+	if value := os.Getenv(contractEnvKey); value != "" {
+		return value
+	}
+	if value := os.Getenv(legacyEnvKey); value != "" {
+		return value
+	}
+
+	envFile, err := os.Open(filepath.Clean(".env.ports"))
+	if err == nil {
+		defer envFile.Close()
+		scanner := bufio.NewScanner(envFile)
+		for scanner.Scan() {
+			line := strings.TrimSpace(scanner.Text())
+			if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+				continue
+			}
+			parts := strings.SplitN(line, "=", 2)
+			key := strings.TrimSpace(parts[0])
+			value := strings.TrimSpace(parts[1])
+			if key == contractEnvKey || key == legacyEnvKey {
+				return value
+			}
+		}
+		if scanErr := scanner.Err(); scanErr == nil {
+			log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
+		} else {
+			log.Fatalf("failed to read .env.ports: %v", scanErr)
+		}
+	}
+	if !errors.Is(err, os.ErrNotExist) {
+		log.Fatalf("failed to read .env.ports: %v", err)
+	}
+
+	log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
+	return ""
+}
+
 func main() {
+	grpcPort := resolvePort("LIUREN_GRPC_PORT", "GRPC_PORT")
+	grpcTarget := "localhost:" + grpcPort
+
 	// 連接 gRPC 服務
-	conn, err := grpc.NewClient("localhost:50052", grpc.WithTransportCredentials(insecure.NewCredentials()))
+	conn, err := grpc.NewClient(grpcTarget, grpc.WithTransportCredentials(insecure.NewCredentials()))
 	if err != nil {
 		log.Fatalf("連接失敗: %v", err)
 	}
@@ -23,7 +69,7 @@ func main() {
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
-	fmt.Println("=== 大六壬 gRPC 信息調用服務測試 ===\n")
+	fmt.Println("=== 大六壬 gRPC 信息調用服務測試 ===")
 
 	// 1. 測試查詢課體信息
 	fmt.Println("1. 查詢所有課體信息:")

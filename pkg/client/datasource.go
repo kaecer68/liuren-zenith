@@ -1,9 +1,13 @@
 package client
 
 import (
+	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
+	"os"
+	"path/filepath"
+	"strings"
 	"time"
 )
 
@@ -33,7 +37,27 @@ type LunarZenithClient struct {
 // NewLunarZenithClient 創建 lunar-zenith 客戶端
 func NewLunarZenithClient(baseURL string) *LunarZenithClient {
 	if baseURL == "" {
-		baseURL = "http://localhost:8080"
+		port := strings.TrimSpace(os.Getenv("LUNAR_REST_PORT"))
+		if port == "" {
+			if file, err := os.Open(filepath.Clean(".env.ports")); err == nil {
+				defer file.Close()
+				scanner := bufio.NewScanner(file)
+				for scanner.Scan() {
+					line := strings.TrimSpace(scanner.Text())
+					if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
+						continue
+					}
+					parts := strings.SplitN(line, "=", 2)
+					if strings.TrimSpace(parts[0]) == "LUNAR_REST_PORT" {
+						port = strings.TrimSpace(parts[1])
+						break
+					}
+				}
+			}
+		}
+		if port != "" {
+			baseURL = fmt.Sprintf("http://localhost:%s", port)
+		}
 	}
 	return &LunarZenithClient{
 		BaseURL: baseURL,
