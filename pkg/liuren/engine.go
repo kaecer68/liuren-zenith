@@ -201,6 +201,7 @@ func (e *Engine) Calculate(req DivinationRequest) (*DivinationResult, error) {
 	yearPillar, _ := ParsePillar(calendarData.YearPillar)
 	yiMa := e.calculateYiMa(yearPillar.Branch)
 	taoHua := e.calculateTaoHua(yearPillar.Branch)
+	tianMa := e.calculateTianMa(yearPillar.Branch)
 
 	// 11. 組裝結果
 	result := &DivinationResult{
@@ -218,6 +219,7 @@ func (e *Engine) Calculate(req DivinationRequest) (*DivinationResult, error) {
 		VoidBranches:   voidBranches,
 		YiMa:           BranchNames[yiMa],
 		TaoHua:         BranchNames[taoHua],
+		TianMa:         BranchNames[tianMa],
 		QuestionType:   req.QuestionType, // 問題類型
 	}
 
@@ -943,6 +945,21 @@ func (e *Engine) calculateTaoHua(yearBranch Branch) Branch {
 		return tao
 	}
 	return Zi
+}
+
+// calculateTianMa 計算天馬
+// 天馬：申子辰馬在午、寅午戌馬在申、巳酉丑馬在亥、亥卯未馬在巳
+func (e *Engine) calculateTianMa(yearBranch Branch) Branch {
+	tianMaMap := map[Branch]Branch{
+		Shen: Wu, Zi: Wu, Chen: Wu, // 申子辰 → 午
+		Yin: Shen, Wu: Shen, Xu: Shen, // 寅午戌 → 申
+		Si: Hai, You: Hai, Chou: Hai, // 巳酉丑 → 亥
+		Hai: Si, Mao: Si, Wei: Si, // 亥卯未 → 巳
+	}
+	if tianMa, ok := tianMaMap[yearBranch]; ok {
+		return tianMa
+	}
+	return Wu // 預設午
 }
 
 // determineKeTi 判斷課體並返回詳細解說

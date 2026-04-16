@@ -228,6 +228,39 @@ func TestEngineCalculateTaoHua(t *testing.T) {
 	}
 }
 
+func TestEngineCalculateTianMa(t *testing.T) {
+	e := NewEngine(nil)
+
+	tests := []struct {
+		branch Branch
+		want   Branch
+	}{
+		// 申子辰馬在午
+		{Shen, Wu}, {Zi, Wu}, {Chen, Wu},
+		// 寅午戌馬在申
+		{Yin, Shen}, {Wu, Shen}, {Xu, Shen},
+		// 巳酉丑馬在亥
+		{Si, Hai}, {You, Hai}, {Chou, Hai},
+		// 亥卯未馬在巳
+		{Hai, Si}, {Mao, Si}, {Wei, Si},
+	}
+
+	for _, tt := range tests {
+		t.Run(BranchNames[tt.branch], func(t *testing.T) {
+			got := e.calculateTianMa(tt.branch)
+			if got != tt.want {
+				t.Errorf("calculateTianMa(%s) = %s, want %s", BranchNames[tt.branch], BranchNames[got], BranchNames[tt.want])
+			}
+		})
+	}
+
+	// default 分支
+	got := e.calculateTianMa(Branch(99))
+	if got != Wu {
+		t.Errorf("calculateTianMa(default) = %s, want 午", BranchNames[got])
+	}
+}
+
 func TestEngineGetDayGeneralName(t *testing.T) {
 	e := NewEngine(nil)
 	if e.getDayGeneralName(true) != "晝貴（陽貴）" {
