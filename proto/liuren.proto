@@ -2,7 +2,7 @@ syntax = "proto3";
 
 package liuren;
 
-option go_package = "github.com/kaecer68/liuren-zenith/api/proto";
+option go_package = "github.com/kaecer68/liuren-zenith/gen/liurenpb;liurenpb";
 
 // 大六壬信息調用服務
 service LiurenInfoService {
