@@ -188,7 +188,7 @@ func (e *Engine) Calculate(req DivinationRequest) (*DivinationResult, error) {
 	tianJiang := CalculateTianJiang(guiRenPos, *isDay, tianPan)
 
 	// 7. 計算四課
-	fourKe := CalculateFourKe(dayPillar.Stem, dayPillar.Branch, tianPan)
+	fourKe := CalculateFourKe(dayPillar.Stem, dayPillar.Branch, tianPan, diPan)
 
 	// 8. 計算三傳（九宗門）
 	jzCalc := NewJiuZongMenCalculator(dayPillar.Stem, dayPillar.Branch, tianPan, diPan, fourKe)
@@ -228,11 +228,14 @@ func (e *Engine) Calculate(req DivinationRequest) (*DivinationResult, error) {
 		result.TianJiang[i] = HeavenlyGeneralNames[tianJiang[i]]
 	}
 
+	// 計算遁干
+	dunGan := CalculateDunGan(dayPillar, tianPan)
+
 	// 轉換四課
-	result.FourKe = e.convertFourKe(fourKe, tianJiang, dayPillar.Stem)
+	result.FourKe = e.convertFourKe(fourKe, tianJiang, dayPillar.Stem, dunGan)
 
 	// 轉換三傳
-	result.SanChuan = e.convertSanChuan(sanChuan, tianJiang, dayPillar.Stem, voidBranches, yiMa, taoHua)
+	result.SanChuan = e.convertSanChuan(sanChuan, tianJiang, dayPillar.Stem, voidBranches, yiMa, taoHua, dunGan)
 
 	// 12. 課體判斷（現在返回詳細解說）
 	result.KeTi, result.KeTiDetail = e.determineKeTi(sanChuan, fourKe, tianPan, diPan)
@@ -247,7 +250,7 @@ func (e *Engine) Calculate(req DivinationRequest) (*DivinationResult, error) {
 }
 
 // convertFourKe 轉換四課為顯示格式
-func (e *Engine) convertFourKe(fourKe FourKe, tianJiang [12]HeavenlyGeneral, dayStem Stem) []KeInfo {
+func (e *Engine) convertFourKe(fourKe FourKe, tianJiang [12]HeavenlyGeneral, dayStem Stem, dunGan [12]Stem) []KeInfo {
 	keList := []struct {
 		ke      Ke
 		num     int
@@ -270,13 +273,16 @@ func (e *Engine) convertFourKe(fourKe FourKe, tianJiang [12]HeavenlyGeneral, day
 			Relation:    e.getShiShen(dayStem, item.ke.Up), // 使用十神
 			Meaning:     item.meaning,
 		}
+		if int(item.ke.Down) >= 0 && int(item.ke.Down) < 12 {
+			_ = dunGan[item.ke.Down]
+		}
 		result = append(result, ki)
 	}
 	return result
 }
 
 // convertSanChuan 轉換三傳為顯示格式
-func (e *Engine) convertSanChuan(sanChuan SanChuan, tianJiang [12]HeavenlyGeneral, dayStem Stem, voidBranches []string, yiMa, taoHua Branch) SanChuanInfo {
+func (e *Engine) convertSanChuan(sanChuan SanChuan, tianJiang [12]HeavenlyGeneral, dayStem Stem, voidBranches []string, yiMa, taoHua Branch, dunGan [12]Stem) SanChuanInfo {
 	chuanList := []struct {
 		info  ChuanInfo
 		name  string
@@ -303,11 +309,15 @@ func (e *Engine) convertSanChuan(sanChuan SanChuan, tianJiang [12]HeavenlyGenera
 		relation := e.getShiShen(dayStem, item.info.Branch) // 使用十神
 		general := HeavenlyGeneralNames[tianJiang[item.info.Branch]]
 
+		stemName := ""
+		if int(item.info.Branch) >= 0 && int(item.info.Branch) < 12 {
+			stemName = StemNames[dunGan[item.info.Branch]]
+		}
 		cd := ChuanDetail{
 			Name:     item.name,
 			Branch:   branchName,
 			General:  general,
-			Stem:     "", // 遁干需額外計算
+			Stem:     stemName,
 			Relation: relation,
 			IsEmpty:  isEmpty,
 			IsHorse:  item.info.Branch == yiMa,
@@ -686,9 +696,31 @@ func (e *Engine) findYongShenInSanChuan(yongShen YongShen, result *DivinationRes
 		{result.SanChuan.Mo, "末傳"},
 	}
 
+	// 六親與十神對應表
+	liuQinToShiShen := map[string][]string{
+		"父母": {"正印", "偏印"},
+		"官鬼": {"正官", "七殺"},
+		"妻財": {"正財", "偏財"},
+		"子孫": {"食神", "傷官"},
+		"兄弟": {"比肩", "劫財"},
+	}
+
+	// 檢查 relation 是否匹配用神六親
+	isMatch := func(relation string) bool {
+		if relation == yongShen.SixRelation {
+			return true
+		}
+		for _, shiShen := range liuQinToShiShen[yongShen.SixRelation] {
+			if relation == shiShen {
+				return true
+			}
+		}
+		return false
+	}
+
 	// 優先在初傳尋找用神
 	for _, item := range chuanList {
-		if item.chuan.Relation == yongShen.SixRelation {
+		if isMatch(item.chuan.Relation) {
 			yongShen.TargetBranch = item.chuan.Branch
 			yongShen.TargetGeneral = item.chuan.General
 			yongShen.Analysis = append(yongShen.Analysis,
@@ -711,7 +743,7 @@ func (e *Engine) findYongShenInSanChuan(yongShen YongShen, result *DivinationRes
 	// 若三傳無用神，在四課中尋找
 	if yongShen.TargetBranch == "" {
 		for _, ke := range result.FourKe {
-			if ke.Relation == yongShen.SixRelation {
+			if isMatch(ke.Relation) {
 				yongShen.TargetBranch = ke.Up
 				yongShen.TargetGeneral = ke.UpGeneral
 				yongShen.Analysis = append(yongShen.Analysis,
@@ -872,35 +904,15 @@ func (e *Engine) getDayGeneralName(isDay bool) string {
 
 // calculateXunKong 計算旬空
 func (e *Engine) calculateXunKong(dayPillar Sexagenary) []string {
-	// 旬空計算：根據日干支所在旬
-	// 簡化實現
-	stems := []string{"甲", "乙", "丙", "丁", "戊", "己", "庚", "辛", "壬", "癸"}
-	branches := []string{"子", "丑", "寅", "卯", "辰", "巳", "午", "未", "申", "酉", "戌", "亥"}
-
-	dayStemName := stems[dayPillar.Stem]
-
-	// 旬首對應
-	xunShou := map[string]int{
-		"甲": 0, "乙": 0, "丙": 0, "丁": 0, "戊": 0, // 甲子旬
-		"己": 10, "庚": 10, "辛": 10, "壬": 10, "癸": 10, // 甲戌旬
-	}
-
-	start := xunShou[dayStemName]
-	if start == 0 && (dayPillar.Stem >= 5) { // 己開始是甲戌旬
-		// 更準確的判斷
-		if dayPillar.Stem >= 5 { // 己庚辛壬癸
-			// 檢查是否超過癸酉
-			if dayPillar.Branch > You {
-				start = 10 // 甲戌旬
-			}
-		}
-	}
-
-	// 空亡是該旬的最後兩個地支
-	void1 := (start + 10) % 12
-	void2 := (start + 11) % 12
-
-	return []string{branches[void1], branches[void2]}
+	// 旬首地支 = (日支 - 日干 + 12) % 12
+	// 空亡 = (旬首 + 10) % 12, (旬首 + 11) % 12
+	// 例：甲子旬（旬首子=0）→ 戌(10)亥(11)空
+	//     甲戌旬（旬首戌=10）→ 申(8)酉(9)空
+	//     甲寅旬（旬首寅=2）→ 子(0)丑(1)空
+	xunShouBranch := (int(dayPillar.Branch) - int(dayPillar.Stem) + 12) % 12
+	void1 := (xunShouBranch + 10) % 12
+	void2 := (xunShouBranch + 11) % 12
+	return []string{BranchNames[void1], BranchNames[void2]}
 }
 
 // calculateYiMa 計算驛馬

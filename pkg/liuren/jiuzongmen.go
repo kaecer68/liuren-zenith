@@ -96,9 +96,9 @@ func (c *JiuZongMenCalculator) BiYongMethod() (SanChuan, bool) {
 	keList := []Ke{c.FourKe.Ke1, c.FourKe.Ke2, c.FourKe.Ke3, c.FourKe.Ke4}
 
 	var candidates []struct {
-		ke    Ke
-		idx   int
-		isBi  bool // 是否相比（同陰陽）
+		ke   Ke
+		idx  int
+		isBi bool // 是否相比（同陰陽）
 	}
 
 	// 收集所有賊/克
@@ -145,10 +145,10 @@ func (c *JiuZongMenCalculator) SheHaiMethod() (SanChuan, bool) {
 	keList := []Ke{c.FourKe.Ke1, c.FourKe.Ke2, c.FourKe.Ke3, c.FourKe.Ke4}
 
 	var candidates []struct {
-		ke       Ke
-		idx      int
-		sheHai   int // 涉害深淺
-		isSiMeng bool // 是否四孟
+		ke        Ke
+		idx       int
+		sheHai    int  // 涉害深淺
+		isSiMeng  bool // 是否四孟
 		isSiZhong bool // 是否四仲
 	}
 
@@ -158,16 +158,16 @@ func (c *JiuZongMenCalculator) SheHaiMethod() (SanChuan, bool) {
 		if isKe {
 			sheHai := c.calculateSheHai(ke.Up)
 			candidates = append(candidates, struct {
-				ke       Ke
-				idx      int
-				sheHai   int
-				isSiMeng bool
+				ke        Ke
+				idx       int
+				sheHai    int
+				isSiMeng  bool
 				isSiZhong bool
 			}{
-				ke:       ke,
-				idx:      i + 1,
-				sheHai:   sheHai,
-				isSiMeng: c.isSiMeng(ke.Up),
+				ke:        ke,
+				idx:       i + 1,
+				sheHai:    sheHai,
+				isSiMeng:  c.isSiMeng(ke.Up),
 				isSiZhong: c.isSiZhong(ke.Up),
 			})
 		}
@@ -180,9 +180,9 @@ func (c *JiuZongMenCalculator) SheHaiMethod() (SanChuan, bool) {
 	// 找涉害最深者
 	maxSheHai := -1
 	var deepest []struct {
-		ke  Ke
-		idx int
-		isSiMeng bool
+		ke        Ke
+		idx       int
+		isSiMeng  bool
 		isSiZhong bool
 	}
 
@@ -190,16 +190,16 @@ func (c *JiuZongMenCalculator) SheHaiMethod() (SanChuan, bool) {
 		if candi.sheHai > maxSheHai {
 			maxSheHai = candi.sheHai
 			deepest = []struct {
-				ke  Ke
-				idx int
-				isSiMeng bool
+				ke        Ke
+				idx       int
+				isSiMeng  bool
 				isSiZhong bool
 			}{{candi.ke, candi.idx, candi.isSiMeng, candi.isSiZhong}}
 		} else if candi.sheHai == maxSheHai {
 			deepest = append(deepest, struct {
-				ke  Ke
-				idx int
-				isSiMeng bool
+				ke        Ke
+				idx       int
+				isSiMeng  bool
 				isSiZhong bool
 			}{candi.ke, candi.idx, candi.isSiMeng, candi.isSiZhong})
 		}
@@ -279,25 +279,26 @@ func (c *JiuZongMenCalculator) MaoXingMethod() (SanChuan, bool) {
 	mo := c.TianPan[zhong]
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: "昴星法",
 	}, true
 }
 
-// BieZeMethod 別責法：四課缺一（無克），剛日取干合，柔日取支前三合
+// BieZeMethod 別責法：四課缺一（無克），剛日取干合上神，柔日取支前三合上神
 func (c *JiuZongMenCalculator) BieZeMethod() (SanChuan, bool) {
-	// 簡化實現：直接判斷剛柔
 	dayStemYang := c.DayStem%2 == 0
 
 	var chu Branch
 	if dayStemYang {
-		// 剛日（陽日）：取日干合（干合：甲己、乙庚、丙辛、丁壬、戊癸）
-		chu = c.getStemHe(c.DayStem)
+		// 剛日（陽日）：取日干合之上神
+		heBranch := c.getStemHe(c.DayStem)
+		chu = c.TianPan[heBranch]
 	} else {
-		// 柔日（陰日）：取日支前三合
-		chu = c.getSanHe(c.DayBranch)
+		// 柔日（陰日）：取日支前三合之上神
+		sanHeBranch := c.getSanHe(c.DayBranch)
+		chu = c.TianPan[sanHeBranch]
 	}
 
 	// 中末傳：俱取干上神
@@ -305,37 +306,50 @@ func (c *JiuZongMenCalculator) BieZeMethod() (SanChuan, bool) {
 	mo := c.FourKe.Ke1.Up
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: "別責法",
 	}, true
 }
 
-// BaZhuanMethod 八專法：八專日（干支同位），取剛柔比用
+// BaZhuanMethod 八專法：八專日（干支同位），陽日取辰上神，陰日取戌上神
 func (c *JiuZongMenCalculator) BaZhuanMethod() (SanChuan, bool) {
-	// 八專日：干支同位（如甲寅、乙卯、丁未、己未、庚申、辛酉...）
-	// 簡化：直接給出結果
+	// 八專日：甲寅、乙卯、丁未、己未、庚申、辛酉、戊午、癸丑
+	baZhuanDays := map[Sexagenary]bool{
+		{StemJia, Yin}:   true,
+		{StemYi, Mao}:    true,
+		{StemDing, Wei}:  true,
+		{StemJi, Wei}:    true,
+		{StemGeng, Shen}: true,
+		{StemXin, You}:   true,
+		{StemWu, Wu}:     true,
+		{StemGui, Chou}:  true,
+	}
+
+	if !baZhuanDays[Sexagenary{c.DayStem, c.DayBranch}] {
+		return SanChuan{}, false
+	}
 
 	dayStemYang := c.DayStem%2 == 0
 
 	var chu Branch
 	if dayStemYang {
-		// 剛日：取天盤魁（戌）或罡（辰）
-		chu = Xu // 簡化取戌
+		// 陽日取辰上神
+		chu = c.TianPan[Chen]
 	} else {
-		// 柔日：取天盤從魁（酉）或大吉（丑）
-		chu = You // 簡化取酉
+		// 陰日取戌上神
+		chu = c.TianPan[Xu]
 	}
 
-	// 中末傳：根據初傳順推
-	zhong := c.TianPan[chu]
-	mo := c.TianPan[zhong]
+	// 中末傳：俱取干上神
+	zhong := c.FourKe.Ke1.Up
+	mo := c.FourKe.Ke1.Up
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: "八專法",
 	}, true
 }
@@ -366,9 +380,9 @@ func (c *JiuZongMenCalculator) FuYinMethod() (SanChuan, bool) {
 	mo := c.TianPan[zhong]
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: "伏吟法",
 	}, true
 }
@@ -384,9 +398,9 @@ func (c *JiuZongMenCalculator) FanYinMethod() SanChuan {
 	mo := c.TianPan[zhong]
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: "返吟法",
 	}
 }
@@ -395,21 +409,20 @@ func (c *JiuZongMenCalculator) FanYinMethod() SanChuan {
 
 // isKe 判斷是否相克（a 克 b）
 func (c *JiuZongMenCalculator) isKe(a, b Branch) bool {
-	// 地支五行：子丑水、寅卯木、辰巳土、午未火、申酉金、戌亥水（簡化）
-	// 實際應根據五行生克表
+	// 正統地支五行相剋表
 	keMap := map[Branch][]Branch{
-		Zi:  {Si, Wu, Wei}, // 子水克巳午未火
-		Chou: {Si, Wu, Wei}, // 丑水克巳午未火
-		Yin:  {Chen, Si, Chou}, // 寅木克辰巳丑土
-		Mao:  {Chen, Si, Chou}, // 卯木克辰巳丑土
-		Chen: {Zi, Chou, Hai}, // 辰土克子丑亥水
-		Si:   {Shen, You},    // 巳火克申酉金
-		Wu:   {Shen, You},    // 午火克申酉金
-		Wei:  {Shen, You},    // 未火克申酉金
-		Shen: {Yin, Mao},     // 申金克寅卯木
-		You:  {Yin, Mao},     // 酉金克寅卯木
-		Xu:   {Zi, Chou, Hai}, // 戌土克子丑亥水
-		Hai:  {Si, Wu, Wei},  // 亥水克巳午未火
+		Zi:   {Wu},                  // 子水克午火
+		Chou: {Zi, Hai},             // 丑土克子水、亥水
+		Yin:  {Chou, Chen, Wei, Xu}, // 寅木克丑土、辰土、未土、戌土
+		Mao:  {Chen, Xu, Chou, Wei}, // 卯木克辰土、戌土、丑土、未土
+		Chen: {Zi, Hai},             // 辰土克子水、亥水
+		Si:   {Shen, You},           // 巳火克申金、酉金
+		Wu:   {Shen, You},           // 午火克申金、酉金
+		Wei:  {Hai},                 // 未土克亥水
+		Shen: {Yin, Mao},            // 申金克寅木、卯木
+		You:  {Mao, Yin},            // 酉金克卯木、寅木
+		Xu:   {Hai},                 // 戌土克亥水
+		Hai:  {Si, Wu},              // 亥水克巳火、午火
 	}
 
 	targets, ok := keMap[a]
@@ -454,9 +467,9 @@ func (c *JiuZongMenCalculator) makeSanChuan(chu Branch, method JiuZongMen, keIdx
 	mo := c.TianPan[zhong]
 
 	return SanChuan{
-		Chu:  ChuanInfo{Branch: chu},
-		Zhong: ChuanInfo{Branch: zhong},
-		Mo:   ChuanInfo{Branch: mo},
+		Chu:    ChuanInfo{Branch: chu},
+		Zhong:  ChuanInfo{Branch: zhong},
+		Mo:     ChuanInfo{Branch: mo},
 		Method: JiuZongMenNames[method] + "（第" + string(rune('0'+keIdx)) + "課）",
 	}
 }
@@ -465,11 +478,11 @@ func (c *JiuZongMenCalculator) makeSanChuan(chu Branch, method JiuZongMen, keIdx
 func (c *JiuZongMenCalculator) getStemHe(stem Stem) Branch {
 	// 干合：甲己、乙庚、丙辛、丁壬、戊癸
 	heMap := map[Stem]Branch{
-		StemJia: Chou, // 甲己合土，取丑
-		StemYi:  Zi,   // 乙庚合金，取子
-		StemBing: Hai, // 丙辛合水，取亥
-		StemDing: Xu,  // 丁壬合木，取戌
-		StemWu:   You, // 戊癸合火，取酉
+		StemJia:  Chou, // 甲己合土，取丑
+		StemYi:   Zi,   // 乙庚合金，取子
+		StemBing: Hai,  // 丙辛合水，取亥
+		StemDing: Xu,   // 丁壬合木，取戌
+		StemWu:   You,  // 戊癸合火，取酉
 	}
 
 	if branch, ok := heMap[stem]; ok {
@@ -483,7 +496,7 @@ func (c *JiuZongMenCalculator) getSanHe(branch Branch) Branch {
 	// 三合：申子辰、寅午戌、巳酉丑、亥卯未
 	// 前三合：取該三合局的下一個地支
 	sanHeNext := map[Branch]Branch{
-		Shen: Zi, // 申子辰，申的下一個是子
+		Shen: Zi,   // 申子辰，申的下一個是子
 		Zi:   Chen, // 子辰...
 		Chen: Shen,
 		Yin:  Wu,
@@ -503,11 +516,31 @@ func (c *JiuZongMenCalculator) getSanHe(branch Branch) Branch {
 	return branch
 }
 
-// getXingShen 獲取刑神
+// getXingShen 獲取刑神（三刑）
 func (c *JiuZongMenCalculator) getXingShen(branch Branch) Branch {
-	// 地支三刑：寅巳申、丑戌未、子卯、辰午酉亥自刑
-	// 簡化：取沖位
-	return Branch((int(branch) + 6) % 12)
+	// 正統三刑：
+	// 無恩之刑：寅刑巳，巳刑申，申刑寅
+	// 恃勢之刑：丑刑戌，戌刑未，未刑丑
+	// 無禮之刑：子刑卯，卯刑子
+	// 自刑：辰、午、酉、亥
+	xingMap := map[Branch]Branch{
+		Yin:  Si,
+		Si:   Shen,
+		Shen: Yin,
+		Chou: Xu,
+		Xu:   Wei,
+		Wei:  Chou,
+		Zi:   Mao,
+		Mao:  Zi,
+		Chen: Chen,
+		Wu:   Wu,
+		You:  You,
+		Hai:  Hai,
+	}
+	if xing, ok := xingMap[branch]; ok {
+		return xing
+	}
+	return branch
 }
 
 // getMaXing 獲取馬星（驛馬）

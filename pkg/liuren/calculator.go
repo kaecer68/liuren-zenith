@@ -60,15 +60,22 @@ func ParsePillar(s string) (Sexagenary, error) {
 // 正月寅月：亥將（登明）| 二月卯月：戌將（河魁）| ... | 十二月丑月：子將（神後）
 func CalculateMonthGeneral(solarTermIdx int) MonthGeneral {
 	// 節氣索引 0-23 對應：立春、雨水、驚蟄、春分...小寒、大寒
-	// 月將換將在中氣（odd indices: 1, 3, 5, ...）
-	// 立春(0)在寅月，月將為亥(登明)
-	// 簡化：根據節氣索引推算月將
-	// 立春(0)/驚蟄(2)/清明(4)/立夏(6)/芒種(8)/小暑(10)/立秋(12)/白露(14)/寒露(16)/立冬(18)/大雪(20)/小寒(22)
-	// 對應月將：亥(0)、戌(1)、酉(2)、申(3)、未(4)、午(5)、巳(6)、辰(7)、卯(8)、寅(9)、丑(10)、子(11)
+	// 月將換將在中氣（odd indices: 1, 3, 5, ..., 23）
+	// 中氣與月將對應表：
+	// 雨水(1)→亥(登明), 春分(3)→戌(河魁), 谷雨(5)→酉(從魁), 小滿(7)→申(傳送),
+	// 夏至(9)→未(小吉), 大暑(11)→午(勝光), 處暑(13)→巳(太乙), 秋分(15)→辰(天罡),
+	// 霜降(17)→卯(太沖), 小雪(19)→寅(功曹), 冬至(21)→丑(大吉), 大寒(23)→子(神後)
+	// 節氣（偶數索引）沿用前一個中氣的月將
 
-	// 簡化計算：節氣索引 // 2 得到月份索引 (0-11)，月將 = (11 - 月份索引) % 12
-	monthIdx := solarTermIdx / 2
-	generalIdx := (11 - monthIdx + 12) % 12
+	// 將節氣索引映射到對應的中氣索引
+	midTermIdx := solarTermIdx
+	if solarTermIdx%2 == 0 {
+		// 節氣：取前一個中氣（循環處理立春(0)接大寒(23)）
+		midTermIdx = (solarTermIdx - 1 + 24) % 24
+	}
+
+	// 中氣索引 1,3,5,...,23 對應月將 0,1,2,...,11
+	generalIdx := (midTermIdx - 1) / 2
 	return MonthGeneral(generalIdx)
 }
 
@@ -77,22 +84,26 @@ func CalculateMonthGeneral(solarTermIdx int) MonthGeneral {
 func CalculateTianPan(monthGeneral MonthGeneral, hourBranch Branch) [12]Branch {
 	var tianPan [12]Branch
 	generalBranch := MonthGeneralBranches[monthGeneral]
+	diPan := GetDiPan()
 
-	// 月將加時：將月將放在占時位置上，其餘順佈
-	// 計算偏移量：月將需要移動到占時位置
-	// 天盤[占時] = 月將
-	// 然後順時針（地支順序）佈置其他
+	// 找到占時在地盤中的索引位置
+	hourPos := -1
+	for i, b := range diPan {
+		if b == hourBranch {
+			hourPos = i
+			break
+		}
+	}
+	if hourPos < 0 {
+		// 理論上不會發生，但為了安全起見
+		hourPos = 0
+	}
 
-	// 找到月將在標準地支中的位置
-	generalPos := int(generalBranch)
-	// 找到占時位置
-	hourPos := int(hourBranch)
-
-	// 計算偏移：天盤位置 p 對應的地支 = (p - hourPos + generalPos + 12) % 12
+	// 月將加時：將月將放在占時位置上，其餘順時針佈置
+	// 地盤索引順序即為順時針方向（亥→子→丑→寅→卯→辰→巳→午→未→申→酉→戌）
 	for i := 0; i < 12; i++ {
-		// 天盤位置 i 應該放置的地支
-		branchIdx := (i - hourPos + generalPos + 12) % 12
-		tianPan[i] = Branch(branchIdx)
+		offset := (i - hourPos + 12) % 12
+		tianPan[i] = Branch((int(generalBranch) + offset) % 12)
 	}
 
 	return tianPan
@@ -154,24 +165,28 @@ func FindGuiRen(dayStem Stem, isDay bool) (Branch, bool) {
 
 // CalculateTianJiang 計算天將佈局
 // 貴人定位後，按順序佈置其他天將
-// 晝貴（陽貴）：亥至辰順行（貴螣朱六勾青空白常玄陰后）
-// 夜貴（陰貴）：巳至戌逆行（貴螣朱六勾青空白常玄陰后）
+// 貴人加臨地盤亥子丑寅卯辰（陽位）順行，巳午未申酉戌（陰位）逆行
 func CalculateTianJiang(guiRenPos Branch, isDay bool, tianPan [12]Branch) [12]HeavenlyGeneral {
 	var tianJiang [12]HeavenlyGeneral
 
 	// 天將順序：貴人、螣蛇、朱雀、六合、勾陳、青龍、天空、白虎、太常、玄武、太陰、天后
 	generals := []HeavenlyGeneral{GuiRen, TengShe, ZhuQue, LiuHe, GouChen, QingLong, TianKong, BaiHu, TaiChang, XuanWu, TaiYin, TianHou}
 
-	if isDay {
-		// 晝貴順行：從貴人位置開始，順時針佈置
-		startIdx := int(guiRenPos)
+	// 陽位：亥子丑寅卯辰；陰位：巳午未申酉戌
+	yangPositions := map[Branch]bool{
+		Hai: true, Zi: true, Chou: true, Yin: true, Mao: true, Chen: true,
+	}
+	isClockwise := yangPositions[guiRenPos]
+
+	startIdx := int(guiRenPos)
+	if isClockwise {
+		// 順行：從貴人位置開始，順時針佈置
 		for i, general := range generals {
 			pos := (startIdx + i) % 12
 			tianJiang[pos] = general
 		}
 	} else {
-		// 夜貴逆行：從貴人位置開始，逆時針佈置
-		startIdx := int(guiRenPos)
+		// 逆行：從貴人位置開始，逆時針佈置
 		for i, general := range generals {
 			pos := (startIdx - i + 12) % 12
 			tianJiang[pos] = general
@@ -181,26 +196,64 @@ func CalculateTianJiang(guiRenPos Branch, isDay bool, tianPan [12]Branch) [12]He
 	return tianJiang
 }
 
+// CalculateDunGan 計算遁干
+// 以日干支的旬首為基準，旬首天干（甲）加於旬首地支所在的天盤位置，順時針佈置十天干
+func CalculateDunGan(dayPillar Sexagenary, tianPan [12]Branch) [12]Stem {
+	var dunGan [12]Stem
+
+	// 旬首地支 = (日支 - 日干 + 12) % 12
+	xunShouBranch := (int(dayPillar.Branch) - int(dayPillar.Stem) + 12) % 12
+
+	// 找到旬首地支在天盤中的位置
+	xunShouPos := -1
+	for i, b := range tianPan {
+		if int(b) == xunShouBranch {
+			xunShouPos = i
+			break
+		}
+	}
+	if xunShouPos < 0 {
+		return dunGan
+	}
+
+	// 旬首天干為甲（StemJia = 0），順時針依次佈置
+	for i := 0; i < 12; i++ {
+		pos := (xunShouPos + i) % 12
+		dunGan[pos] = Stem(i % 10)
+	}
+
+	return dunGan
+}
+
 // CalculateFourKe 計算四課
-func CalculateFourKe(dayStem Stem, dayBranch Branch, tianPan [12]Branch) FourKe {
+func CalculateFourKe(dayStem Stem, dayBranch Branch, tianPan, diPan [12]Branch) FourKe {
 	// 日干寄宮
 	dayStemAttachment := StemAttachment[dayStem]
 
+	findDiPanPos := func(b Branch) int {
+		for i, db := range diPan {
+			if db == b {
+				return i
+			}
+		}
+		return 0
+	}
+
 	// 第一課：日干寄宮之上神
 	ke1Down := dayStemAttachment
-	ke1Up := tianPan[ke1Down]
+	ke1Up := tianPan[findDiPanPos(ke1Down)]
 
 	// 第二課：第一課上神之上神
 	ke2Down := ke1Up
-	ke2Up := tianPan[ke2Down]
+	ke2Up := tianPan[findDiPanPos(ke2Down)]
 
 	// 第三課：日支之上神
 	ke3Down := dayBranch
-	ke3Up := tianPan[ke3Down]
+	ke3Up := tianPan[findDiPanPos(ke3Down)]
 
 	// 第四課：第三課上神之上神
 	ke4Down := ke3Up
-	ke4Up := tianPan[ke4Down]
+	ke4Up := tianPan[findDiPanPos(ke4Down)]
 
 	return FourKe{
 		Ke1: Ke{Down: ke1Down, Up: ke1Up},
