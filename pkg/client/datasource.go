@@ -1,14 +1,12 @@
 package client
 
 import (
-	"bufio"
 	"encoding/json"
 	"fmt"
 	"net/http"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
+
+	"github.com/kaecer68/liuren-zenith/internal/runtimeconfig"
 )
 
 // CalendarDataSource 曆法數據源接口
@@ -26,6 +24,10 @@ type CalendarData struct {
 	HourPillar    string  // 時柱 (如：己未)
 	SolarTerm     string  // 節氣名稱
 	SolarTermIdx  int     // 節氣索引 (0-23)
+	LunarYear     int     // 農曆年（顯示/除錯用）
+	LunarMonth    int     // 農曆月（顯示/除錯用）
+	LunarDay      int     // 農曆日（顯示/除錯用）
+	IsLeapMonth   bool    // 是否閏月（顯示/除錯用）
 }
 
 // LunarZenithClient 調用 lunar-zenith 服務的客戶端
@@ -37,25 +39,13 @@ type LunarZenithClient struct {
 // NewLunarZenithClient 創建 lunar-zenith 客戶端
 func NewLunarZenithClient(baseURL string) *LunarZenithClient {
 	if baseURL == "" {
-		port := strings.TrimSpace(os.Getenv("LUNAR_REST_PORT"))
-		if port == "" {
-			if file, err := os.Open(filepath.Clean(".env.ports")); err == nil {
-				defer file.Close()
-				scanner := bufio.NewScanner(file)
-				for scanner.Scan() {
-					line := strings.TrimSpace(scanner.Text())
-					if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
-						continue
-					}
-					parts := strings.SplitN(line, "=", 2)
-					if strings.TrimSpace(parts[0]) == "LUNAR_REST_PORT" {
-						port = strings.TrimSpace(parts[1])
-						break
-					}
-				}
+		if configuredURL, err := runtimeconfig.Lookup("LUNAR_BASE_URL"); err == nil && configuredURL != "" {
+			baseURL = configuredURL
+		} else {
+			port, err := runtimeconfig.Lookup("LUNAR_REST_PORT", "LUNAR_REST_PORT")
+			if err != nil || port == "" {
+				port = "8080"
 			}
-		}
-		if port != "" {
 			baseURL = fmt.Sprintf("http://localhost:%s", port)
 		}
 	}
@@ -103,6 +93,12 @@ func (c *LunarZenithClient) GetCalendarData(t time.Time) (*CalendarData, error) 
 			Index int    `json:"Index"`
 			Name  string `json:"Name"`
 		} `json:"solar_term"`
+		Lunar struct {
+			Year   int  `json:"year"`
+			Month  int  `json:"month"`
+			Day    int  `json:"day"`
+			IsLeap bool `json:"is_leap"`
+		} `json:"lunar"`
 	}
 
 	if err := json.NewDecoder(resp.Body).Decode(&result); err != nil {
@@ -149,6 +145,10 @@ func (c *LunarZenithClient) GetCalendarData(t time.Time) (*CalendarData, error) 
 		HourPillar:    stems[hourStem] + branches[hourBranch],
 		SolarTerm:     result.SolarTerm.Name,
 		SolarTermIdx:  result.SolarTerm.Index,
+		LunarYear:     result.Lunar.Year,
+		LunarMonth:    result.Lunar.Month,
+		LunarDay:      result.Lunar.Day,
+		IsLeapMonth:   result.Lunar.IsLeap,
 	}, nil
 }
 
