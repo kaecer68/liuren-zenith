@@ -25,8 +25,8 @@
 - **吉凶判斷** - 綜合課體與傳位評估
 
 ### 🌐 服務接口
-- **REST API** - HTTP JSON 接口（端口 8081）
-- **gRPC 服務** - 高效 protobuf 接口（端口 50052）
+- **REST API** - HTTP JSON 接口（runtime port 由契約同步）
+- **gRPC 服務** - 高效 protobuf 接口（runtime port 由契約同步）
 - **Web 前端** - 現代化響面設計
 
 ## 🚀 快速開始
@@ -49,17 +49,43 @@ go build -o liuren-server ./cmd/server/main.go
 ./liuren-server
 ```
 
+### 契約同步（Ports）
+
+本專案使用契約來源同步本地端口配置，建議用以下流程：
+
+```bash
+# 1) 依 destiny-contracts 同步 .env.ports
+make sync-contracts
+
+# 2) 驗證本地端口設定是否與契約一致
+make verify-contracts
+
+# 3) 以同步後的端口啟動（會自動載入 .env.ports，含 LUNAR_REST_PORT）
+make run
+```
+
+端口環境變數優先順序：
+- `LIUREN_REST_PORT` > `REST_PORT`
+- `LIUREN_GRPC_PORT` > `GRPC_PORT`
+
+若上述值與 `.env.ports` 都不存在，服務會直接 fail fast，不會退回固定 port。
+
+> Ports 契約治理政策（務必遵循）：
+> 1. **單一真相來源**：所有端口值以 `destiny-contracts/runtime/ports.env`（`scripts/sync-contracts.sh` 會讀取）為準。
+> 2. **必跑同步/驗證**：每次開發前先執行 `make sync-contracts`、提交前必跑 `make verify-contracts`。
+> 3. **Port 衝突清理**：若看到端口被占用，使用 `make dev-clean` 釋放 `LIUREN_*` 端口。
+> 4. **禁止手改 `.env.ports`**：此檔由腳本生成，若需調整請修改契約檔再同步。
+> 5. **CI gate**：`.github/workflows/verify-contracts.yml` 會在 PR/CI 執行 `make verify-contracts`，未同步會直接 fail。
+
 ### API 使用範例
 
-**REST API:**
+**REST API（OpenAPI 契約路徑）:**
 ```bash
-curl -X POST http://localhost:8081/api/v1/divination \
+curl -X POST http://localhost:${LIUREN_REST_PORT}/v1/liuren/calculate \
   -H "Content-Type: application/json" \
   -d '{
-    "date": "2026-03-16",
-    "time": "14:00",
-    "question": "問財運",
-    "question_type": "財運"
+    "datetime": "2026-03-16T14:00:00+08:00",
+    "question_type": "求財"
   }'
 ```
 

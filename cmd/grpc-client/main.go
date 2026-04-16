@@ -1,61 +1,19 @@
 package main
 
 import (
-	"bufio"
 	"context"
-	"errors"
 	"fmt"
 	"log"
-	"os"
-	"path/filepath"
-	"strings"
 	"time"
 
-	"github.com/kaecer68/liuren-zenith/api/proto"
+	liurenpb "github.com/kaecer68/liuren-zenith/gen/liurenpb"
+	"github.com/kaecer68/liuren-zenith/internal/runtimeconfig"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/credentials/insecure"
 )
 
-func resolvePort(contractEnvKey, legacyEnvKey string) string {
-	if value := os.Getenv(contractEnvKey); value != "" {
-		return value
-	}
-	if value := os.Getenv(legacyEnvKey); value != "" {
-		return value
-	}
-
-	envFile, err := os.Open(filepath.Clean(".env.ports"))
-	if err == nil {
-		defer envFile.Close()
-		scanner := bufio.NewScanner(envFile)
-		for scanner.Scan() {
-			line := strings.TrimSpace(scanner.Text())
-			if line == "" || strings.HasPrefix(line, "#") || !strings.Contains(line, "=") {
-				continue
-			}
-			parts := strings.SplitN(line, "=", 2)
-			key := strings.TrimSpace(parts[0])
-			value := strings.TrimSpace(parts[1])
-			if key == contractEnvKey || key == legacyEnvKey {
-				return value
-			}
-		}
-		if scanErr := scanner.Err(); scanErr == nil {
-			log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
-		} else {
-			log.Fatalf("failed to read .env.ports: %v", scanErr)
-		}
-	}
-	if !errors.Is(err, os.ErrNotExist) {
-		log.Fatalf("failed to read .env.ports: %v", err)
-	}
-
-	log.Fatalf("missing runtime port configuration for %s/%s", contractEnvKey, legacyEnvKey)
-	return ""
-}
-
 func main() {
-	grpcPort := resolvePort("LIUREN_GRPC_PORT", "GRPC_PORT")
+	grpcPort := mustResolvePort("LIUREN_GRPC_PORT", "GRPC_PORT")
 	grpcTarget := "localhost:" + grpcPort
 
 	// 連接 gRPC 服務
@@ -65,7 +23,7 @@ func main() {
 	}
 	defer conn.Close()
 
-	client := proto.NewLiurenInfoServiceClient(conn)
+	client := liurenpb.NewLiurenInfoServiceClient(conn)
 	ctx, cancel := context.WithTimeout(context.Background(), time.Second*10)
 	defer cancel()
 
@@ -73,7 +31,7 @@ func main() {
 
 	// 1. 測試查詢課體信息
 	fmt.Println("1. 查詢所有課體信息:")
-	keTiResp, err := client.GetKeTiInfo(ctx, &proto.GetKeTiInfoRequest{})
+	keTiResp, err := client.GetKeTiInfo(ctx, &liurenpb.GetKeTiInfoRequest{})
 	if err != nil {
 		log.Printf("查詢課體失敗: %v", err)
 	} else {
@@ -84,7 +42,7 @@ func main() {
 
 	// 2. 測試查詢特定課體
 	fmt.Println("\n2. 查詢特定課體（伏吟課）:")
-	keTiSingle, err := client.GetKeTiInfo(ctx, &proto.GetKeTiInfoRequest{KeTiName: "伏吟課"})
+	keTiSingle, err := client.GetKeTiInfo(ctx, &liurenpb.GetKeTiInfoRequest{KeTiName: "伏吟課"})
 	if err != nil {
 		log.Printf("查詢失敗: %v", err)
 	} else if len(keTiSingle.KeTiList) > 0 {
@@ -97,7 +55,7 @@ func main() {
 
 	// 3. 測試查詢神煞信息
 	fmt.Println("\n3. 查詢所有神煞:")
-	shenShaResp, err := client.GetShenShaInfo(ctx, &proto.GetShenShaInfoRequest{})
+	shenShaResp, err := client.GetShenShaInfo(ctx, &liurenpb.GetShenShaInfoRequest{})
 	if err != nil {
 		log.Printf("查詢神煞失敗: %v", err)
 	} else {
@@ -108,7 +66,7 @@ func main() {
 
 	// 4. 測試查詢天將信息
 	fmt.Println("\n4. 查詢十二天將:")
-	tjResp, err := client.GetTianJiangInfo(ctx, &proto.GetTianJiangInfoRequest{})
+	tjResp, err := client.GetTianJiangInfo(ctx, &liurenpb.GetTianJiangInfoRequest{})
 	if err != nil {
 		log.Printf("查詢天將失敗: %v", err)
 	} else {
@@ -119,7 +77,7 @@ func main() {
 
 	// 5. 測試查詢月將信息
 	fmt.Println("\n5. 查詢十二月將:")
-	mgResp, err := client.GetMonthGeneralInfo(ctx, &proto.GetMonthGeneralInfoRequest{})
+	mgResp, err := client.GetMonthGeneralInfo(ctx, &liurenpb.GetMonthGeneralInfoRequest{})
 	if err != nil {
 		log.Printf("查詢月將失敗: %v", err)
 	} else {
@@ -130,7 +88,7 @@ func main() {
 
 	// 6. 測試查詢歷史記錄
 	fmt.Println("\n6. 查詢歷史排盤記錄:")
-	historyResp, err := client.QueryDivinationHistory(ctx, &proto.QueryDivinationHistoryRequest{Limit: 5})
+	historyResp, err := client.QueryDivinationHistory(ctx, &liurenpb.QueryDivinationHistoryRequest{Limit: 5})
 	if err != nil {
 		log.Printf("查詢歷史失敗: %v", err)
 	} else {
@@ -142,4 +100,13 @@ func main() {
 	}
 
 	fmt.Println("\n=== 測試完成 ===")
+}
+
+func mustResolvePort(contractEnvKey, legacyEnvKey string) string {
+	defer func() {
+		if recovered := recover(); recovered != nil {
+			log.Fatalf("runtime config error: %v", recovered)
+		}
+	}()
+	return runtimeconfig.MustLookupPort(contractEnvKey, legacyEnvKey)
 }

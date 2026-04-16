@@ -3,12 +3,12 @@ package server
 import (
 	"context"
 
-	"github.com/kaecer68/liuren-zenith/api/proto"
+	liurenpb "github.com/kaecer68/liuren-zenith/gen/liurenpb"
 )
 
 // InfoServer gRPC 信息調用服務實現
 type InfoServer struct {
-	proto.UnimplementedLiurenInfoServiceServer
+	liurenpb.UnimplementedLiurenInfoServiceServer
 }
 
 // NewInfoServer 創建信息服務器
@@ -17,9 +17,9 @@ func NewInfoServer() *InfoServer {
 }
 
 // GetKeTiInfo 查詢課體信息
-func (s *InfoServer) GetKeTiInfo(ctx context.Context, req *proto.GetKeTiInfoRequest) (*proto.GetKeTiInfoResponse, error) {
+func (s *InfoServer) GetKeTiInfo(ctx context.Context, req *liurenpb.GetKeTiInfoRequest) (*liurenpb.GetKeTiInfoResponse, error) {
 	// 課體信息庫
-	keTiDB := map[string]*proto.KeTiInfo{
+	keTiDB := map[string]*liurenpb.KeTiInfo{
 		"伏吟課": {
 			Name:        "伏吟課",
 			Category:    "特殊課體",
@@ -78,7 +78,7 @@ func (s *InfoServer) GetKeTiInfo(ctx context.Context, req *proto.GetKeTiInfoRequ
 		},
 	}
 
-	resp := &proto.GetKeTiInfoResponse{}
+	resp := &liurenpb.GetKeTiInfoResponse{}
 
 	if req.KeTiName != "" {
 		// 查詢特定課體
@@ -96,8 +96,8 @@ func (s *InfoServer) GetKeTiInfo(ctx context.Context, req *proto.GetKeTiInfoRequ
 }
 
 // GetShenShaInfo 查詢神煞信息
-func (s *InfoServer) GetShenShaInfo(ctx context.Context, req *proto.GetShenShaInfoRequest) (*proto.GetShenShaInfoResponse, error) {
-	shenShaDB := map[string]*proto.ShenShaInfo{
+func (s *InfoServer) GetShenShaInfo(ctx context.Context, req *liurenpb.GetShenShaInfoRequest) (*liurenpb.GetShenShaInfoResponse, error) {
+	shenShaDB := map[string]*liurenpb.ShenShaInfo{
 		"天乙貴人": {
 			Name:        "天乙貴人",
 			Description: "諸神之首，主貴氣、權威、扶助",
@@ -136,7 +136,7 @@ func (s *InfoServer) GetShenShaInfo(ctx context.Context, req *proto.GetShenShaIn
 		},
 	}
 
-	resp := &proto.GetShenShaInfoResponse{}
+	resp := &liurenpb.GetShenShaInfoResponse{}
 
 	if req.ShenShaName != "" {
 		if shenSha, ok := shenShaDB[req.ShenShaName]; ok {
@@ -152,9 +152,9 @@ func (s *InfoServer) GetShenShaInfo(ctx context.Context, req *proto.GetShenShaIn
 }
 
 // GetLiuQinInfo 查詢六親關係
-func (s *InfoServer) GetLiuQinInfo(ctx context.Context, req *proto.GetLiuQinInfoRequest) (*proto.GetLiuQinInfoResponse, error) {
+func (s *InfoServer) GetLiuQinInfo(ctx context.Context, req *liurenpb.GetLiuQinInfoRequest) (*liurenpb.GetLiuQinInfoResponse, error) {
 	// 六親關係說明
-	liuQinDB := map[string]*proto.GetLiuQinInfoResponse{
+	liuQinDB := map[string]*liurenpb.GetLiuQinInfoResponse{
 		"比肩": {
 			Relation:    "比肩",
 			Description: "與日干同五行同陰陽",
@@ -211,7 +211,7 @@ func (s *InfoServer) GetLiuQinInfo(ctx context.Context, req *proto.GetLiuQinInfo
 	if req.Stem != "" && req.Branch != "" {
 		// 這裡簡化處理，實際應根據干支計算
 		relation := "待計算"
-		return &proto.GetLiuQinInfoResponse{
+		return &liurenpb.GetLiuQinInfoResponse{
 			Relation:    relation,
 			Description: "日干 " + req.Stem + " 與地支 " + req.Branch + " 的關係",
 			Meaning:     "請參考具體排盤結果",
@@ -223,12 +223,12 @@ func (s *InfoServer) GetLiuQinInfo(ctx context.Context, req *proto.GetLiuQinInfo
 		return info, nil
 	}
 
-	return &proto.GetLiuQinInfoResponse{}, nil
+	return &liurenpb.GetLiuQinInfoResponse{}, nil
 }
 
 // GetTianJiangInfo 查詢十二天將信息
-func (s *InfoServer) GetTianJiangInfo(ctx context.Context, req *proto.GetTianJiangInfoRequest) (*proto.GetTianJiangInfoResponse, error) {
-	tianJiangDB := map[string]*proto.TianJiangInfo{
+func (s *InfoServer) GetTianJiangInfo(ctx context.Context, req *liurenpb.GetTianJiangInfoRequest) (*liurenpb.GetTianJiangInfoResponse, error) {
+	tianJiangDB := map[string]*liurenpb.TianJiangInfo{
 		"貴人": {
 			Name:        "天乙貴人",
 			Description: "諸神之首，主貴氣、權威",
@@ -303,7 +303,7 @@ func (s *InfoServer) GetTianJiangInfo(ctx context.Context, req *proto.GetTianJia
 		},
 	}
 
-	resp := &proto.GetTianJiangInfoResponse{}
+	resp := &liurenpb.GetTianJiangInfoResponse{}
 
 	if req.TianJiangName != "" {
 		if tj, ok := tianJiangDB[req.TianJiangName]; ok {
@@ -324,23 +324,23 @@ func (s *InfoServer) GetTianJiangInfo(ctx context.Context, req *proto.GetTianJia
 }
 
 // GetMonthGeneralInfo 查詢月將信息
-func (s *InfoServer) GetMonthGeneralInfo(ctx context.Context, req *proto.GetMonthGeneralInfoRequest) (*proto.GetMonthGeneralInfoResponse, error) {
-	monthGeneralDB := map[string]*proto.MonthGeneralInfo{
-		"正月": {Name: "登明", Month: "正月（寅月）", Description: "水神，主智慧、流動", Meaning: "事情多變，宜靈活應對"},
-		"二月": {Name: "河魁", Month: "二月（卯月）", Description: "土神，主收藏、穩固", Meaning: "事情漸穩，宜守成"},
-		"三月": {Name: "從魁", Month: "三月（辰月）", Description: "金神，主肅殺、果斷", Meaning: "宜果斷決策，不宜拖延"},
-		"四月": {Name: "傳送", Month: "四月（巳月）", Description: "金神，主傳遞、變動", Meaning: "事情多變動，宜靈活"},
-		"五月": {Name: "小吉", Month: "五月（午月）", Description: "火神，主文明、喜慶", Meaning: "主喜慶之事，但防過急"},
-		"六月": {Name: "勝光", Month: "六月（未月）", Description: "火神，主光明、顯達", Meaning: "事情顯明，宜積極進取"},
-		"七月": {Name: "太卜", Month: "七月（申月）", Description: "土神，主占卜、決斷", Meaning: "宜占卜決策，果斷行事"},
-		"八月": {Name: "天罡", Month: "八月（酉月）", Description: "土神，主剛強、威嚴", Meaning: "事情剛強，宜堅持原則"},
-		"九月": {Name: "太沖", Month: "九月（戌月）", Description: "木神，主生發、開始", Meaning: "宜開始新事，生發向上"},
-		"十月": {Name: "功曹", Month: "十月（亥月）", Description: "木神，主功勳、成就", Meaning: "宜追求成就，建立功勳"},
+func (s *InfoServer) GetMonthGeneralInfo(ctx context.Context, req *liurenpb.GetMonthGeneralInfoRequest) (*liurenpb.GetMonthGeneralInfoResponse, error) {
+	monthGeneralDB := map[string]*liurenpb.MonthGeneralInfo{
+		"正月":  {Name: "登明", Month: "正月（寅月）", Description: "水神，主智慧、流動", Meaning: "事情多變，宜靈活應對"},
+		"二月":  {Name: "河魁", Month: "二月（卯月）", Description: "土神，主收藏、穩固", Meaning: "事情漸穩，宜守成"},
+		"三月":  {Name: "從魁", Month: "三月（辰月）", Description: "金神，主肅殺、果斷", Meaning: "宜果斷決策，不宜拖延"},
+		"四月":  {Name: "傳送", Month: "四月（巳月）", Description: "金神，主傳遞、變動", Meaning: "事情多變動，宜靈活"},
+		"五月":  {Name: "小吉", Month: "五月（午月）", Description: "火神，主文明、喜慶", Meaning: "主喜慶之事，但防過急"},
+		"六月":  {Name: "勝光", Month: "六月（未月）", Description: "火神，主光明、顯達", Meaning: "事情顯明，宜積極進取"},
+		"七月":  {Name: "太卜", Month: "七月（申月）", Description: "土神，主占卜、決斷", Meaning: "宜占卜決策，果斷行事"},
+		"八月":  {Name: "天罡", Month: "八月（酉月）", Description: "土神，主剛強、威嚴", Meaning: "事情剛強，宜堅持原則"},
+		"九月":  {Name: "太沖", Month: "九月（戌月）", Description: "木神，主生發、開始", Meaning: "宜開始新事，生發向上"},
+		"十月":  {Name: "功曹", Month: "十月（亥月）", Description: "木神，主功勳、成就", Meaning: "宜追求成就，建立功勳"},
 		"十一月": {Name: "大吉", Month: "十一月（子月）", Description: "土神，主吉祥、安穩", Meaning: "主吉祥如意，平安順利"},
 		"十二月": {Name: "神后", Month: "十二月（丑月）", Description: "土神，主尊貴、庇佑", Meaning: "得神佑護，尊貴吉祥"},
 	}
 
-	resp := &proto.GetMonthGeneralInfoResponse{}
+	resp := &liurenpb.GetMonthGeneralInfoResponse{}
 
 	if req.Month != "" {
 		if mg, ok := monthGeneralDB[req.Month]; ok {
@@ -360,16 +360,16 @@ func (s *InfoServer) GetMonthGeneralInfo(ctx context.Context, req *proto.GetMont
 }
 
 // QueryDivinationHistory 查詢歷史排盤記錄（示例實現）
-func (s *InfoServer) QueryDivinationHistory(ctx context.Context, req *proto.QueryDivinationHistoryRequest) (*proto.QueryDivinationHistoryResponse, error) {
+func (s *InfoServer) QueryDivinationHistory(ctx context.Context, req *liurenpb.QueryDivinationHistoryRequest) (*liurenpb.QueryDivinationHistoryResponse, error) {
 	// 這裡可以連接數據庫查詢歷史記錄
 	// 目前返回示例數據
-	resp := &proto.QueryDivinationHistoryResponse{
+	resp := &liurenpb.QueryDivinationHistoryResponse{
 		Total: 0,
 	}
 
 	// 示例記錄
 	if req.Limit > 0 {
-		resp.Records = []*proto.DivinationRecord{
+		resp.Records = []*liurenpb.DivinationRecord{
 			{
 				Id:           "1",
 				Date:         "2026-03-16",
