@@ -11,7 +11,8 @@ import (
 )
 
 type Handler struct {
-	Engine *liuren.Engine
+	Engine  *liuren.Engine
+	Version string
 }
 
 type LegacyDivinationRequest struct {
@@ -186,7 +187,7 @@ func (h *Handler) HandleHealth(w http.ResponseWriter, _ *http.Request) {
 	_ = json.NewEncoder(w).Encode(map[string]any{
 		"status":    "ok",
 		"service":   "liuren-zenith",
-		"version":   "v1.0.0",
+		"version":   h.Version,
 		"timestamp": time.Now().Format(time.RFC3339),
 	})
 }

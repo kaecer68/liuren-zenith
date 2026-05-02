@@ -11,14 +11,21 @@ proto:
 clean:
 	rm -rf gen/liurenpb
 
+VERSION := $(shell cat VERSION 2>/dev/null || echo "dev")
+LDFLAGS := -ldflags '-X main.serviceVersion=$(VERSION)'
+
 run:
 	@chmod +x scripts/sync-contracts.sh
 	bash scripts/sync-contracts.sh
-	bash -c 'set -a; . ./.env.ports; set +a; go run ./cmd/server/main.go'
+	bash -c 'set -a; . ./.env.ports; set +a; go run $(LDFLAGS) ./cmd/server/main.go'
 
 sync-contracts:
 	@chmod +x scripts/sync-contracts.sh
 	bash scripts/sync-contracts.sh
+
+check-version:
+	@chmod +x scripts/check-version-consistency.sh
+	bash scripts/check-version-consistency.sh
 
 verify-contracts:
 	@chmod +x scripts/sync-contracts.sh

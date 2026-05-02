@@ -16,6 +16,8 @@ import (
 	"google.golang.org/grpc"
 )
 
+var serviceVersion = "dev"
+
 // corsMiddleware 添加跨域支援
 func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 	return func(w http.ResponseWriter, r *http.Request) {
@@ -33,9 +35,13 @@ func corsMiddleware(next http.HandlerFunc) http.HandlerFunc {
 }
 
 func main() {
-	dataSource := client.NewLunarZenithClient("")
+	dataSource, err := client.NewLunarZenithClientWithFallback()
+	if err != nil {
+		log.Fatalf("創建 lunar-zenith 客戶端失敗: %v", err)
+	}
 	handler := &httpapi.Handler{
-		Engine: liuren.NewEngine(dataSource),
+		Engine:  liuren.NewEngine(dataSource),
+		Version: serviceVersion,
 	}
 	restPort := mustResolvePort("LIUREN_REST_PORT", "REST_PORT")
 	grpcPort := mustResolvePort("LIUREN_GRPC_PORT", "GRPC_PORT")
@@ -49,14 +55,19 @@ func main() {
 	http.HandleFunc("/v1/liuren/analyze", corsMiddleware(handler.HandleAnalyze))
 	http.HandleFunc("/api/v1/divination", corsMiddleware(handler.HandleDivination))
 
-	// 提供靜態網頁 - 使用絕對路徑
-	execPath, err := os.Executable()
-	if err != nil {
-		log.Printf("Warning: 無法獲取執行路徑: %v", err)
-		execPath = "."
+	webDir := "./web"
+	if info, err := os.Stat(webDir); err != nil || !info.IsDir() {
+		if err != nil && !os.IsNotExist(err) {
+			log.Printf("Warning: 無法存取 web 目錄: %v", err)
+		}
+		execPath, err := os.Executable()
+		if err != nil {
+			log.Printf("Warning: 無法獲取執行路徑: %v", err)
+			execPath = "."
+		}
+		execDir := filepath.Dir(execPath)
+		webDir = filepath.Join(execDir, "web")
 	}
-	execDir := filepath.Dir(execPath)
-	webDir := filepath.Join(execDir, "web")
 
 	fs := http.FileServer(http.Dir(webDir))
 	http.Handle("/", fs)
